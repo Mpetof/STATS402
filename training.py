@@ -3,7 +3,7 @@ import time
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix, roc_curve, auc,roc_auc_score
 import seaborn as sns
-from model_construction import GCNPair,GATPair
+from model_construction import GCNPair,GATPair,GCNPair_EdegEm
 from model_construction import map_labels, load_cpkl_gz, load_data
 import torch.nn.functional as F
 
@@ -22,8 +22,17 @@ models_dict = {
         'class': GATPair,
         'params': {
             'input_dim': 70,
-            'hidden_dim': 32,  # This will be taken from user input
+            'hidden_dim': 35,  # Larger than 70 do not work well!
             'output_dim': 2
+        }
+    },
+    'gcn_pair_edge': {
+        'class': GCNPair_EdegEm,
+        'params': {
+            'input_dim': 70,
+            'hidden_dim': 32,  # 32 works more than 40 fails
+            'output_dim': 2, #This setting is good stay here AUC0.81
+            'edge_dim':2
         }
     },
     # Add other models to the dictionary in the same manner
@@ -134,7 +143,7 @@ def plot_confusion_matrix(y_true, y_pred, model_name):
     plt.show()
 
 
-def plot_roc_curve(y_true, y_pred, model_name):
+def plot_roc_curve(y_true, y_pred,y_scores,model_name):
     fpr, tpr, thresholds = roc_curve(y_true, y_scores)
     roc_auc = auc(fpr, tpr)
 
@@ -147,6 +156,7 @@ def plot_roc_curve(y_true, y_pred, model_name):
     plt.ylabel('True Positive Rate')
     plt.title('ROC curve')
     plt.legend(loc="lower right")
+    plt.savefig(f"./results/{model_name}_roc_curve.pdf")
     plt.show()
 
 
@@ -155,7 +165,7 @@ def main():
     test_data = load_cpkl_gz('./dataset/test.cpkl.gz')
     
     # Add a patience parameter for early stopping
-    patience = 7
+    patience = 12
     best_auc = 0  # Initialize best AUC
     epochs_no_improve = 0  # Initialize counter for early stopping
     last_epoch = 0 
@@ -186,7 +196,7 @@ def main():
             best_auc = train_auc
             epochs_no_improve = 0
             # Save the best model if AUC improved
-            torch.save(model.state_dict(), f'./models/{model_save_name}_best.pth')
+            torch.save(model.state_dict(), f'./models/{model_save_name[:-4]}_best.pth')
         else:
             epochs_no_improve += 1
             if epochs_no_improve >= patience:
@@ -196,8 +206,7 @@ def main():
     end_training_time = time.time()
 
 
-    test_auc, y_true, y_scores,y_pred = test(model, criterion, test_data)
-    print(f'Test AUC: {test_auc:.4f}')
+    test_auc,y_true,y_scores,y_pred = test(model, criterion, test_data)
     end_testing_time = time.time()
 
     print(f'Test AUC: {test_auc:.4f}')
@@ -209,7 +218,7 @@ def main():
     model_base_name = model_save_name.replace('.pth', '') 
     plot_training_graphs(range(1, last_epoch + 1), train_losses, train_aucs, model_base_name)
     plot_confusion_matrix(y_true, y_pred, model_base_name)
-    plot_roc_curve(y_true, y_pred,model_base_name)
+    plot_roc_curve(y_true, y_pred,y_scores,model_base_name)
 
 if __name__ == "__main__":
     main()
