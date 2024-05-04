@@ -1,6 +1,7 @@
 import os
 import gzip
 import pickle
+import time
 import numpy as np
 import torch
 import torch.nn as nn
@@ -61,7 +62,7 @@ def plot_training_graphs(epochs, train_losses, train_aucs, model_name):
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig(f"./results/Experiments_MLP/{model_name}_training_graphs.pdf")
+    plt.savefig(f"./results/Experiments_MLP/{model_name}_training_graphs_3.pdf")
     plt.show()
 
 def plot_confusion_matrix(y_true, y_pred, model_name):
@@ -71,7 +72,7 @@ def plot_confusion_matrix(y_true, y_pred, model_name):
     plt.xlabel('Predicted labels')
     plt.ylabel('True labels')
     plt.title('Confusion Matrix')
-    plt.savefig(f"./results/Experiments_MLP/{model_name}_confusion_matrix.pdf")
+    plt.savefig(f"./results/Experiments_MLP/{model_name}_confusion_matrix_3.pdf")
     plt.show()
 
 def plot_roc_curve(y_true, y_scores, model_name):
@@ -86,7 +87,7 @@ def plot_roc_curve(y_true, y_scores, model_name):
     plt.ylabel('True Positive Rate')
     plt.title('ROC Curve')
     plt.legend(loc="lower right")
-    plt.savefig(f"./results/Experiments_MLP/{model_name}_roc_curve.pdf")
+    plt.savefig(f"./results/Experiments_MLP/{model_name}_roc_curve_3.pdf")
     plt.show()
 
 def train(model, train_loader, criterion, optimizer, num_epochs, patience):
@@ -127,13 +128,13 @@ def train(model, train_loader, criterion, optimizer, num_epochs, patience):
         if train_auc > best_auc:
             best_auc = train_auc
             epochs_no_improve = 0
-            torch.save(model.state_dict(), './models/MLPbest_model.pth')
+            torch.save(model.state_dict(), './models/MLPbest_model_3.pth')
             print("Model improved and saved.")
         else:
             epochs_no_improve += 1
             if epochs_no_improve >= patience:
                 early_stop = True
-                model.load_state_dict(torch.load('./models/MLPbest_model.pth'))
+                model.load_state_dict(torch.load('./models/MLPbest_model_3.pth'))
 
     plot_training_graphs(epochs_list, train_losses, train_aucs, 'MLP')
 
@@ -187,15 +188,22 @@ def main():
     input_size = 220
     hidden_size = 480
     model = MLP(input_size, hidden_size).to(device)
-    pos_weight = torch.tensor([10], dtype=torch.float).to(device)
+    pos_weight = torch.tensor([6], dtype=torch.float).to(device)#Note set this weight to 0.2 is good
     criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
     optimizer = optim.Adam(model.parameters(), lr=0.001)
 
     train_loader, test_loader = create_dataloaders(X_train, y_train, X_test, y_test)
 
+    start_time = time.time()
     train(model, train_loader, criterion, optimizer, 100, 10)
-    targets, scores = test(model, test_loader)
+    end_time = time.time()
+    print(f"Training finished in {end_time - start_time} seconds.")
 
+    start_time = time.time()
+    targets, scores = test(model, test_loader)
+    end_time = time.time()
+    print(f"Testing finished in {end_time - start_time} seconds.")
+    
 if __name__ == "__main__":
     os.makedirs('./models', exist_ok=True)
     os.makedirs('./results/Experiments_MLP', exist_ok=True)

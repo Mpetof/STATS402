@@ -3,7 +3,7 @@ import time
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix, roc_curve, auc,roc_auc_score
 import seaborn as sns
-from model_construction import GCNPair,GATPair,GCNPair_EdegEm
+from model_construction import GCNPair,GATPair,GCNPair_EdegEm,s1_GAT,s2_GCN,s1_GAT,s2_GAT
 from model_construction import map_labels, load_cpkl_gz, load_data
 import torch.nn.functional as F
 
@@ -28,6 +28,33 @@ models_dict = {
     },
     'gcn_pair_edge': {
         'class': GCNPair_EdegEm,
+        'params': {
+            'input_dim': 70,
+            'hidden_dim': 32,  # 32 works more than 40 fails
+            'output_dim': 2, #This setting is good stay here AUC0.81
+            'edge_dim':2
+        }
+    },
+    's2_gcn': {
+        'class': s2_GCN,
+        'params': {
+            'input_dim': 70,
+            'hidden_dim': 32,  # 32 works best! more than 40 fails
+            'output_dim': 2, #This setting is good stay here AUC0.81
+            'edge_dim':2
+        }
+    },
+    's1_gat': {
+        'class': s1_GAT,
+        'params': {
+            'input_dim': 70,
+            'hidden_dim': 32,  # 32 works more than 40 fails
+            'output_dim': 2, #This setting is good stay here AUC0.81
+            'edge_dim':2
+        }
+    },
+    's2_gat': {
+        'class': s2_GAT,
         'params': {
             'input_dim': 70,
             'hidden_dim': 32,  # 32 works more than 40 fails
@@ -165,7 +192,7 @@ def main():
     test_data = load_cpkl_gz('./dataset/test.cpkl.gz')
     
     # Add a patience parameter for early stopping
-    patience = 12
+    patience = 15
     best_auc = 0  # Initialize best AUC
     epochs_no_improve = 0  # Initialize counter for early stopping
     last_epoch = 0 
@@ -178,7 +205,14 @@ def main():
     #model = GCNPair(input_dim=70, hidden_dim=hidden_dim, output_dim=2).to(device) #No longer Used
     
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-    weight = torch.tensor([1, 6], dtype=torch.float32).to(device)
+    #Note weight [1,6] gives best performance we'll discuss later
+    #We name like this to test on stability: stability_weight_11_s2gcn.pth
+
+    #Wait things can be problemative here:
+    #pos_weight = torch.tensor([2.0, 1.0], dtype=torch.float32).to(device)
+    #criterion = torch.nn.CrossEntropyLoss(weight=pos_weight)
+    #We need to check later!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    weight = torch.tensor([1,6], dtype=torch.float32).to(device)
     criterion = torch.nn.CrossEntropyLoss(weight=weight)
 
     train_losses, train_aucs = [], []
